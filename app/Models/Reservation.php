@@ -15,4 +15,18 @@ class Reservation extends Model
         'statut',
         'prix'
     ];
+
+    public function user()
+{
+    return $this->belongsTo(User::class);
 }
+
+public function espace()
+{
+    return $this->belongsTo(Espace::class);
+}
+}
+
+
+
+

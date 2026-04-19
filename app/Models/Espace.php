@@ -13,4 +13,14 @@ class Espace extends Model
         'tarif_jour',
         'photo',
     ];
+
+    public function reservations()
+    {
+        return $this->hasMany(Reservation::class);
+    }
+
+    public function equipements()
+    {
+        return $this->belongsToMany(Equipement::class, 'espace_equipement');
+    }
 }
