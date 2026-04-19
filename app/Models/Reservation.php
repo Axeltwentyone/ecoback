@@ -7,11 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 class Reservation extends Model
 {
     protected $fillable = [
-        'user_id',
         'date_debut',
         'date_fin',
+        'user_id',
+        'espace_id',
+        'facture_acquittee',
         'statut',
-        'prix',
-        'espace_id'
+        'prix'
     ];
 }
