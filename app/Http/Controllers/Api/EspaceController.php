@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Espace;
+use App\Http\Requests\espace\StoreEspaceRequest;
+use App\Http\Requests\espace\UpdateEspaceRequest;
 use Illuminate\Http\Request;
 
 class EspaceController extends Controller
@@ -11,79 +13,100 @@ class EspaceController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $espaces = Espace::with('equipements')
-            ->orderBy('id', 'desc')
-            ->paginate(10);
+        $query = Espace::with('equipements');
 
-        return response()->json($espaces);
+        if ($request->type) {
+            $query->where('type', $request->type);
+        }
+
+        if ($request->tarif_min && $request->tarif_max) {
+            $query->whereBetween('tarif_jour', [
+                $request->tarif_min,
+                $request->tarif_max
+            ]);
+        }
+
+        $sortBy = $request->sort_by ?? 'created_at';
+        $sortOrder = $request->sort_order ?? 'desc';
+
+        $espaces = $query->orderBy($sortBy, $sortOrder)
+                         ->paginate(10);
+
+        return response()->json([
+            'message' => 'Liste des espaces',
+            'data'    => $espaces,
+            'success' => true
+        ]);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreEspaceRequest $request)
     {
-        $request->validate([
-            'nom' => 'required|string',
-            'surface' => 'required|integer',
-            'type' => 'required|string',
-            'tarif_jour' => 'required|integer',
-            'photo' => 'nullable|string',
+        $data = $request->validated();
+
+        $espace = Espace::create([
+            'nom'        => $data['nom'],
+            'surface'    => $data['surface'],
+            'type'       => $data['type'],
+            'tarif_jour' => $data['tarif_jour'],
+            'photo'      => $data['photo'] ?? null,
         ]);
 
-        $espace = Espace::create($request->all());
-
         return response()->json([
-            "message" => "Espace créé avec succès",
-            "data" => $espace
+            'message' => 'Espace créé avec succès',
+            'data'    => $espace,
+            'success' => true
         ], 201);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(Espace $espace)
     {
-        $espace = Espace::with('equipements')->findOrFail($id);
-
-        return response()->json($espace);
+        return response()->json([
+            'message' => 'Détails de l\'espace',
+            'data'    => $espace->load('equipements'),
+            'success' => true
+        ], 200);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(UpdateEspaceRequest $request, Espace $espace)
     {
-        $espace = Espace::findOrFail($id);
+        $data = $request->validated();
 
-        $request->validate([
-            'nom' => 'sometimes|string',
-            'surface' => 'sometimes|integer',
-            'type' => 'sometimes|string',
-            'tarif_jour' => 'sometimes|integer',
-            'photo' => 'nullable|string',
+        $espace->update([
+            'nom'        => $data['nom']        ?? $espace->nom,
+            'surface'    => $data['surface']    ?? $espace->surface,
+            'type'       => $data['type']       ?? $espace->type,
+            'tarif_jour' => $data['tarif_jour'] ?? $espace->tarif_jour,
+            'photo'      => $data['photo']      ?? $espace->photo,
         ]);
-
-        $espace->update($request->all());
 
         return response()->json([
-            "message" => "Espace mis à jour",
-            "data" => $espace
-        ]);
+            'message' => 'Espace mis à jour avec succès',
+            'data'    => $espace,
+            'success' => true
+        ], 200);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(Espace $espace)
     {
-    $espace = Espace::findOrFail($id);
         $espace->delete();
 
         return response()->json([
-            "message" => "Espace supprimé"
-        ]);
+            'message' => 'Espace supprimé avec succès',
+            'success' => true
+        ], 200);
     }
 }
