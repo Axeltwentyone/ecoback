@@ -3,6 +3,9 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Gate;
+use App\Models\Reservation;
+use App\Policies\ReservationPolicy;
 use Illuminate\Support\Facades\Schema;
 
 class AppServiceProvider extends ServiceProvider
@@ -21,6 +24,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // 🔥 Fix erreur "key too long" MySQL
-        Schema::defaultStringLength(191);
+      Gate::policy(Reservation::class, ReservationPolicy::class);
     }
 }

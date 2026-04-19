@@ -15,6 +15,9 @@ class EspaceController extends Controller
      */
     public function index(Request $request)
     {
+
+        $this->authorize('viewAny', Espace::class);
+
         $query = Espace::with('equipements');
 
         if ($request->type) {
@@ -46,6 +49,7 @@ class EspaceController extends Controller
      */
     public function store(StoreEspaceRequest $request)
     {
+
         $data = $request->validated();
 
         $espace = Espace::create([

@@ -15,6 +15,9 @@ class EquipementController extends Controller
      */
     public function index(Request $request)
     {
+
+        $this->authorize('viewAny', Equipement::class);
+        
         $query = Equipement::query();
 
         if ($request->libelle) {

@@ -34,6 +34,8 @@ class AdminController extends Controller
     public function index(Request $request)
 
     {
+        $this->authorize('viewAny', User::class);
+        
         $query = User::query();
 
         if ($request->search) {

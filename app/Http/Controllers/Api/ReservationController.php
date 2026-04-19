@@ -16,13 +16,27 @@ class ReservationController extends Controller
      */
     public function index(Request $request)
     {
+
+        $this->authorize('viewAny', Reservation::class);
+
         $query = Reservation::query();
+
+        $query->join('users', 'reservations.user_id', '=', 'users.id')
+               ->join('espaces', 'reservations.espace_id', '=', 'espaces.id')
+               ->select('reservations.*', 'users.nom as user_nom', 'users.prenom as user_prenom', 'espaces.nom as espace_nom')
+        ;
+
+        if($request->search){
+            $query->where(function($q) use ($request){
+                $q->where('users.nom', 'like', '%'.$request->search.'%')
+                  ->orWhere('users.prenom', 'like', '%'.$request->search.'%')
+                  ->orWhere('espaces.nom', 'like', '%'.$request->search.'%');
+            });
+        }
 
         if ($request->date) {
             $query->whereDate('date_debut', $request->date);
-        }
-
-        if ($request->start_date && $request->end_date) {
+        } elseif  ($request->start_date && $request->end_date) {
             $query->whereBetween('date_debut', [
                 $request->start_date,
                 $request->end_date
@@ -32,8 +46,15 @@ class ReservationController extends Controller
         $sortBy = $request->sort_by ?? 'created_at';
         $sortOrder = $request->sort_order ?? 'desc';
 
-        $reservations = $query->orderBy($sortBy, $sortOrder)
-                            ->paginate(10);
+        if ($sortBy === 'user_nom') {
+            $query->orderBy('users.nom', $sortOrder);
+        } elseif ($sortBy === 'espace_nom') {
+            $query->orderBy('espaces.nom', $sortOrder);
+        } else {
+            $query->orderBy('reservations.' . $sortBy, $sortOrder);
+        }
+
+        $reservations = $query->paginate(10);
 
         return response()->json([
             'message' => 'Liste des réservations',
@@ -47,12 +68,15 @@ class ReservationController extends Controller
      */
     public function store(StoreReservationRequest $request)
     {
+
+        $this->authorize('create', Reservation::class);
+
         $data = $request->validated();
 
         $reservation = Reservation::create([
             'date_debut' => $data['date_debut'],
             'date_fin' => $data['date_fin'],
-            'user_id' => $data['user_id'],
+            'user_id' => auth()->id(),
             'espace_id' => $data['espace_id'],
             'prix' => $data['prix'],
             'facture_acquittee' => $data['facture_acquittee'] ?? false,
@@ -71,6 +95,10 @@ class ReservationController extends Controller
      */
         public function show(Reservation $reservation)
         {
+            $this->authorize('view', $reservation);
+
+            $reservation->load('user', 'espace');
+
             return response()->json([
                 'message' => 'Détails de la réservation',
                 'data' => $reservation,
@@ -83,6 +111,8 @@ class ReservationController extends Controller
      */
     public function update(UpdateReservationRequest $request, Reservation $reservation)
     {
+        $this->authorize('update', $reservation);
+
         $data = $request->validated();
 
         $reservation->update([
@@ -108,6 +138,8 @@ class ReservationController extends Controller
      */
     public function destroy(Reservation $reservation)
     {
+        $this->authorize('delete', $reservation);
+
         $reservation->delete();
 
         return response()->json([
