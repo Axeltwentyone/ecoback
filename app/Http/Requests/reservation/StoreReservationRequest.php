@@ -24,11 +24,8 @@ class StoreReservationRequest extends FormRequest
         return [
             'date_debut' => 'required|date',
             'date_fin' => 'required|date|after_or_equal:date_debut',
-            'user_id' => 'required|exists:users,id',
             'espace_id' => 'required|exists:espaces,id',
-            'prix' => 'required|numeric|min:0',
-            'facture_acquittee' => 'boolean',
-            'statut' => 'required|in:en_attente,confirmee,annulee'
+            'facture_acquittee' => 'boolean'
         ];
     }
 }

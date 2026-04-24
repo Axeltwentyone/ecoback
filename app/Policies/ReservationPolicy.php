@@ -29,7 +29,7 @@ class ReservationPolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        return $user->type_de_compte === 'client';
     }
 
     /**

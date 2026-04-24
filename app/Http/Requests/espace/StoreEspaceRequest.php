@@ -22,11 +22,13 @@ class StoreEspaceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nom'        => 'required|string|max:255',
-            'surface'    => 'required|integer|min:1',
-            'type'       => 'required|string|max:100',
-            'tarif_jour' => 'required|integer|min:0',
-            'photo'      => 'nullable|string',
+            'nom'          => 'required|string|max:255',
+            'surface'      => 'required|integer|min:1',
+            'type'         => 'required|string|max:100',
+            'tarif_jour'   => 'required|integer|min:0',
+            'photo'        => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'equipements'  => 'nullable|array',
+            'equipements.*' => 'exists:equipements,id',
         ];
     }
 }

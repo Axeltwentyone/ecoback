@@ -6,6 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Reservation;
 use App\Http\Requests\reservation\StoreReservationRequest;
 use App\Http\Requests\reservation\UpdateReservationRequest;
+use App\Http\Resources\ReservationResource;
+use App\Models\Espace;
+use Illuminate\Support\Facades\Auth;
+
 
 use Illuminate\Http\Request;
 
@@ -16,50 +20,52 @@ class ReservationController extends Controller
      */
     public function index(Request $request)
     {
-
-        $this->authorize('viewAny', Reservation::class);
-
         $query = Reservation::query();
 
-        $query->join('users', 'reservations.user_id', '=', 'users.id')
-               ->join('espaces', 'reservations.espace_id', '=', 'espaces.id')
-               ->select('reservations.*', 'users.nom as user_nom', 'users.prenom as user_prenom', 'espaces.nom as espace_nom')
-        ;
-
         if($request->search){
-            $query->where(function($q) use ($request){
-                $q->where('users.nom', 'like', '%'.$request->search.'%')
-                  ->orWhere('users.prenom', 'like', '%'.$request->search.'%')
-                  ->orWhere('espaces.nom', 'like', '%'.$request->search.'%');
+            $query->whereHas('user', function($q) use ($request){
+                $q->where('nom', 'like', '%'.$request->search.'%')
+                  ->orWhere('prenom', 'like', '%'.$request->search.'%');
             });
         }
 
         if ($request->date) {
             $query->whereDate('date_debut', $request->date);
-        } elseif  ($request->start_date && $request->end_date) {
+        }
+
+        if ($request->date_debut && $request->date_fin) {
             $query->whereBetween('date_debut', [
-                $request->start_date,
-                $request->end_date
+                $request->date_debut,
+                $request->date_fin
             ]);
+        } elseif ($request->date_debut) {
+            $query->whereDate('date_debut', '>=', $request->date_debut);
+        } elseif ($request->date_fin) {
+            $query->whereDate('date_fin', '<=', $request->date_fin);
         }
 
-        $sortBy = $request->sort_by ?? 'created_at';
-        $sortOrder = $request->sort_order ?? 'desc';
-
-        if ($sortBy === 'user_nom') {
-            $query->orderBy('users.nom', $sortOrder);
-        } elseif ($sortBy === 'espace_nom') {
-            $query->orderBy('espaces.nom', $sortOrder);
-        } else {
-            $query->orderBy('reservations.' . $sortBy, $sortOrder);
-        }
-
-        $reservations = $query->paginate(10);
+        $reservations = $query
+        ->with(['user', 'espace'])
+        ->latest()
+        ->paginate(10);
 
         return response()->json([
             'message' => 'Liste des réservations',
-            'data' => $reservations,
+            'data' => ReservationResource::collection($reservations),
             'success' => true
+        ], 200);
+    }
+
+    public function myReservation(){
+
+        $reservations = auth()->user()
+        ->reservations()
+        ->with('espace')
+        ->paginate(10);
+
+        return response()->json([
+        'message' => 'Mes réservations',
+        'data' => ReservationResource::collection($reservations)
         ]);
     }
 
@@ -69,23 +75,48 @@ class ReservationController extends Controller
     public function store(StoreReservationRequest $request)
     {
 
-        $this->authorize('create', Reservation::class);
-
         $data = $request->validated();
+
+        $espace = Espace::findOrFail($data['espace_id']);
+
+        $debut = new \DateTime($data['date_debut']);
+        $fin = new \DateTime($data['date_fin']);
+
+        $jours = $debut->diff($fin)->days + 1;
+
+        if ($jours <= 0) {
+            return response()->json([
+                'message' => 'Dates invalides',
+                'success' => false
+            ], 422);
+        }
+            $exists = Reservation::where('espace_id', $data['espace_id'])
+            ->where(function ($query) use ($data) {
+                $query->where('date_debut', '<=', $data['date_fin'])
+                      ->where('date_fin', '>=', $data['date_debut']);
+            })
+            ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'message' => 'Cet espace est déjà réservé pour ces dates.',
+                'success' => false
+            ], 422);
+        }
 
         $reservation = Reservation::create([
             'date_debut' => $data['date_debut'],
             'date_fin' => $data['date_fin'],
-            'user_id' => auth()->id(),
+            'user_id' => Auth::id(),
             'espace_id' => $data['espace_id'],
-            'prix' => $data['prix'],
-            'facture_acquittee' => $data['facture_acquittee'] ?? false,
-            'statut' => $data['statut']
+            'prix' => $jours * $espace->tarif_jour,
+            'facture_acquittee' => true,
+            'statut' => 'en_attente'
         ]);
 
         return response()->json([
-            'message' => 'Reservation crée avec succès',
-            'data' =>$reservation,
+            'message' => 'Reservation créée avec succès',
+            'data'    => new ReservationResource($reservation->load('espace')),
             'success' => true
         ], 201);
     }
@@ -96,12 +127,11 @@ class ReservationController extends Controller
         public function show(Reservation $reservation)
         {
             $this->authorize('view', $reservation);
-
             $reservation->load('user', 'espace');
 
             return response()->json([
                 'message' => 'Détails de la réservation',
-                'data' => $reservation,
+                'data'    => new ReservationResource($reservation),
                 'success' => true
             ], 200);
         }
@@ -111,9 +141,30 @@ class ReservationController extends Controller
      */
     public function update(UpdateReservationRequest $request, Reservation $reservation)
     {
-        $this->authorize('update', $reservation);
 
         $data = $request->validated();
+
+        // Si on change les dates ou l'espace, vérifier les chevauchements
+        $newEspaceId = $data['espace_id'] ?? $reservation->espace_id;
+        $newDebut = $data['date_debut'] ?? $reservation->date_debut;
+        $newFin = $data['date_fin'] ?? $reservation->date_fin;
+
+        if (isset($data['date_debut']) || isset($data['date_fin']) || isset($data['espace_id'])) {
+            $exists = Reservation::where('espace_id', $newEspaceId)
+                ->where('id', '!=', $reservation->id) // Exclure la réservation actuelle
+                ->where(function ($query) use ($newDebut, $newFin) {
+                    $query->where('date_debut', '<=', $newFin)
+                          ->where('date_fin', '>=', $newDebut);
+                })
+                ->exists();
+
+            if ($exists) {
+                return response()->json([
+                    'message' => 'Cet espace est déjà réservé pour ces dates.',
+                    'success' => false
+                ], 422);
+            }
+        }
 
         $reservation->update([
             'date_debut' => $data['date_debut'] ?? $reservation->date_debut,
@@ -125,9 +176,11 @@ class ReservationController extends Controller
             'statut' => $data['statut'] ?? $reservation->statut
         ]);
 
+        $reservation->load('user', 'espace');
+
         return response()->json([
             'message' => 'Réservation mise à jour avec succès',
-            'data' => $reservation,
+            'data'    => new ReservationResource($reservation),
             'success' => true
         ], 200);
 
@@ -138,7 +191,6 @@ class ReservationController extends Controller
      */
     public function destroy(Reservation $reservation)
     {
-        $this->authorize('delete', $reservation);
 
         $reservation->delete();
 

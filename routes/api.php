@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\EspaceController;
 use App\Http\Controllers\Api\EquipementController;
 use App\Http\Controllers\Api\ReservationController;
+use Illuminate\Http\Request;
+
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -14,25 +16,31 @@ Route::get('/user', function (Request $request) {
 // Routes publiques
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+ // Espaces
+Route::get('/espaces', [EspaceController::class, 'index']);
+Route::get('/espaces/{espace}', [EspaceController::class, 'show']);
 
 // Routes protégées (connecté)
 Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    // Espaces
-    Route::get('/espaces', [EspaceController::class, 'index']);
-    Route::get('/espaces/{espace}', [EspaceController::class, 'show']);
+
+
 
     // Réservations
-    Route::get('/reservations', [ReservationController::class, 'index']);
+    Route::get('/Mes-reservations', [ReservationController::class, 'myReservation']);
     Route::post('/reservations', [ReservationController::class, 'store']);
     Route::get('/reservations/{reservation}', [ReservationController::class, 'show']);
     Route::put('/reservations/{reservation}', [ReservationController::class, 'update']);
     Route::delete('/reservations/{reservation}', [ReservationController::class, 'destroy']);
+    Route::get('/Mes-reservations', [ReservationController::class, 'myReservation']);
+
 
     // Routes admin
-    Route::middleware('is-admin')->group(function () {
+    Route::middleware('IsAdmin')->group(function () {
+
+        Route::get('/reservations', [ReservationController::class, 'index']);
 
         // Gestion des espaces
         Route::post('/espaces', [EspaceController::class, 'store']);
@@ -41,6 +49,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Gestion des équipements
         Route::apiResource('/equipements', EquipementController::class);
+
+
 
         // Gestion des utilisateurs
         Route::get('/users', [AdminController::class, 'index']);

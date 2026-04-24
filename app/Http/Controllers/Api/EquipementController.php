@@ -7,6 +7,7 @@ use App\Models\Equipement;
 use App\Http\Requests\equipement\StoreEquipementRequest;
 use App\Http\Requests\equipement\UpdateEquipementRequest;
 use Illuminate\Http\Request;
+use App\Http\Resources\EquipementResource;
 
 class EquipementController extends Controller
 {
@@ -15,9 +16,6 @@ class EquipementController extends Controller
      */
     public function index(Request $request)
     {
-
-        $this->authorize('viewAny', Equipement::class);
-        
         $query = Equipement::query();
 
         if ($request->libelle) {
@@ -32,7 +30,7 @@ class EquipementController extends Controller
 
         return response()->json([
             'message' => 'Liste des équipements',
-            'data'    => $equipements,
+            'data' => EquipementResource::collection($equipements),
             'success' => true
         ]);
     }
@@ -50,7 +48,7 @@ class EquipementController extends Controller
 
         return response()->json([
             'message' => 'Équipement créé avec succès',
-            'data'    => $equipement,
+            'data'    => new EquipementResource($equipement),
             'success' => true
         ], 201);
     }
@@ -80,7 +78,7 @@ class EquipementController extends Controller
 
         return response()->json([
             'message' => 'Équipement mis à jour avec succès',
-            'data'    => $equipement,
+            'data'    => new EquipementResource($equipement),
             'success' => true
         ], 200);
     }

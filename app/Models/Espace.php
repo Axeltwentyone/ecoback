@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
 
 class Espace extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'nom',
         'surface',
@@ -21,6 +24,6 @@ class Espace extends Model
 
     public function equipements()
     {
-        return $this->belongsToMany(Equipement::class, 'espace_equipement');
+        return $this->belongsToMany(Equipement::class, 'espace_equipements');
     }
 }

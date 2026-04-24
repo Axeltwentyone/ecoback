@@ -22,11 +22,13 @@ class UpdateEspaceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nom'        => 'sometimes|string|max:255',
-            'surface'    => 'sometimes|integer|min:1',
-            'type'       => 'sometimes|string|max:100',
-            'tarif_jour' => 'sometimes|integer|min:0',
-            'photo'      => 'nullable|string',
+            'nom'          => 'sometimes|string|max:255',
+            'surface'      => 'sometimes|integer|min:1',
+            'type'         => 'sometimes|string|max:100',
+            'tarif_jour'   => 'sometimes|integer|min:0',
+            'photo'        => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'equipements'  => 'nullable|array',
+            'equipements.*' => 'exists:equipements,id',
         ];
     }
 }

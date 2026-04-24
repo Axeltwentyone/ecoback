@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Http\Requests\admin\CreateAdminRequest;
 use App\Http\Requests\admin\UpdateAdminRequest;
+use App\Http\Resources\UserResource;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Http\Request;
 
@@ -32,24 +33,20 @@ class AdminController extends Controller
     }
 
     public function index(Request $request)
-
     {
-        $this->authorize('viewAny', User::class);
-        
+
         $query = User::query();
 
         if ($request->search) {
         $query->where('nom', 'like', '%' . $request->search . '%');
         }
 
-        if ($request->date) {
-        $query->whereDate('created_at', $request->date);
-        }
 
-        $sortBy = $request->sort_by ?? 'created_at';
-        $sortOrder = $request->sort_order ?? 'desc';
-
-        $users = $query->orderBy($sortBy, $sortOrder)->paginate(10);
+        $users = $query->with(['reservations' => function($q) {
+            $q->with('espace')
+                ->latest()
+                ->limit(1);
+        }])->latest()->paginate(10);
 
         return response()->json([
             'message' => 'Liste des utilisateurs',
@@ -77,11 +74,11 @@ class AdminController extends Controller
         ], 200);
     }
 
-     public function show(User $user)
+    public function show(User $user)
     {
         return response()->json([
             'message' => 'Détails de l\'utilisateur',
-            'data' => $user,
+            'data' => new UserResource($user->load(['reservations.espace'])),
             'success' => true
         ], 200);
     }

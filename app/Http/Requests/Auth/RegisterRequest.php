@@ -25,9 +25,10 @@ class RegisterRequest extends FormRequest
             'nom' => 'required|string|max:255',
             'prenom' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
+            'pin' => 'required|string|min:6',
             'numero' => 'required|string|max:20',
             'adresse_postale' => 'required|string|max:255',
+            'type_de_compte' => 'sometimes|in:admin,client',
         ];
     }
 }

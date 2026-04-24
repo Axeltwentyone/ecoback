@@ -24,6 +24,7 @@ class User extends Authenticatable
         'password',
         'numero',
         'adresse_postale',
+        'type_de_compte'
     ];
 
     /**
